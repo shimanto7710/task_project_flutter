@@ -192,7 +192,7 @@ class MyAppState extends State<MyApp> {
                 // taskList[index].status=1;
                 _updateByTime(taskList[index]);
               }
-              sec = sec - 60;
+              sec = sec - 1;
               setState(() {
                 if (sec <= 0 && taskList[index].status==2) {
                   taskList[index].time = taskList[index].time - 1;
