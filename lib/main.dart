@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'TaskModel.dart';
 import 'database.dart';
@@ -32,17 +35,18 @@ class MyAppState extends State<MyApp> {
   final dbHelper = DatabaseHelper.instance;
 
   List<TaskModel> taskList = [
-    TaskModel(1, "task1", 5, 1),
-    TaskModel(2, "task2", 5, 1),
-    TaskModel(3, "task3", 5, 1),
-    TaskModel(4, "task4", 5, 1),
-    TaskModel(5, "task5", 5, 1),
+    // TaskModel(1, "task1", 5, 1),
+    // TaskModel(2, "task2", 5, 1),
+    // TaskModel(3, "task3", 5, 1),
+    // TaskModel(4, "task4", 5, 1),
+    // TaskModel(5, "task5", 5, 1),
   ];
 
   @override
+  // ignore: must_call_super
   void initState() {
     // _insert();
-    // _query();
+    _query();
   }
 
   @override
@@ -77,61 +81,138 @@ class MyAppState extends State<MyApp> {
   }
 
   Widget listItem(BuildContext context, int index) {
-    final trip = taskList[index];
+    final task = taskList[index];
     return Card(
-      child: Container(
-        child: Column(
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  height: 80,
-                  width: 320,
-                  child: Column(
+      child: (taskList[index].time > 0)
+          ? Container(
+              child: Column(
+                children: <Widget>[
+                  Row(
                     children: <Widget>[
                       Container(
-                        width: double.infinity,
-                        margin: EdgeInsets.only(left: 10, top: 10),
-                        child: Text(
-                          trip.title,
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      ),
-                      Container(
-                        width: double.infinity,
-                        margin: EdgeInsets.only(left: 10, top: 10),
-                        child: Text(
-                          trip.time.toString(),
-                          style: TextStyle(fontSize: 20),
-                        ),
-                      )
+                          height: 80,
+                          width: 320,
+                          child: Column(
+                            children: <Widget>[
+                              Container(
+                                width: double.infinity,
+                                margin: EdgeInsets.only(left: 10, top: 10),
+                                child: Text(
+                                  task.title,
+                                  style: TextStyle(fontSize: 20),
+                                ),
+                              ),
+                              Container(
+                                width: double.infinity,
+                                margin: EdgeInsets.only(left: 10, top: 10),
+                                child: Text(
+                                  task.time.toString(),
+                                  style: TextStyle(fontSize: 20),
+                                ),
+                              )
+                            ],
+                          )),
+                      _playOrPause(index),
                     ],
-                  ),
-                ),
-                _playOrPause(trip.status)
-              ],
+                  )
+                ],
+              ),
             )
-          ],
-        ),
-      ),
+          : Container(
+              child: Text(
+                'Completed',
+                style: TextStyle(fontSize: 20),
+              ),
+              height: 80,
+              width: 320,
+              margin: EdgeInsets.only(left: 20, top: 15),
+            ),
     );
   }
+
+  TextEditingController titleController = TextEditingController();
+  TextEditingController timeController = TextEditingController();
 
   // bool isPlay = true;
 
   // ignore: missing_return
-  Widget _playOrPause(int status) {
-    if (status == 1) {
-      return IconButton(icon: Icon(Icons.play_arrow,size: 50,),onPressed: (){
-        setState(() {
-          status=2;
-        });
-      },);
-    } else if (status == 2) {
-      return IconButton(icon: Icon(Icons.pause,size: 50,),onPressed: (){
-
-      },);
+  Widget _playOrPause(int index) {
+    Timer _timer;
+    if (taskList[index].status == 1) {
+      return IconButton(
+        icon: Icon(
+          Icons.play_arrow,
+          size: 50,
+        ),
+        onPressed: () {
+          startTimer(_timer, index);
+          setState(() {
+            taskList[index].status = 2;
+            _update(taskList[index]);
+          });
+        },
+      );
+    } else if (taskList[index].status == 2) {
+      return IconButton(
+        icon: Icon(
+          Icons.pause,
+          size: 50,
+        ),
+        onPressed: () {
+          stopTimer(_timer,index);
+          setState(() {
+            taskList[index].status = 1;
+            // taskList[index].time=taskList[index].time;
+            _update(taskList[index]);
+          });
+        },
+      );
     }
+  }
+
+  void startTimer(Timer _timer, index) {
+    const oneSec = const Duration(seconds: 1);
+    int sec = 60;
+    int updateTime=5;
+
+    if (_timer != null) {
+      _timer.cancel();
+      _timer = null;
+    } else {
+      _timer = Timer.periodic(
+        oneSec,
+        (Timer timer) => setState(
+          () {
+            if (taskList[index].time < 1) {
+              timer.cancel();
+            } else {
+              updateTime=updateTime-1;
+              if(updateTime<=0){
+                updateTime=5;
+                // taskList[index].status=1;
+                _updateByTime(taskList[index]);
+              }
+              sec = sec - 60;
+              setState(() {
+                if (sec <= 0 && taskList[index].status==2) {
+                  taskList[index].time = taskList[index].time - 1;
+                  sec = 60;
+                }else{
+                  timer.cancel();
+                }
+              });
+            }
+          },
+        ),
+      );
+    }
+  }
+
+  void stopTimer(Timer _timer,index) {
+    // _timer.;
+    setState(() {
+      taskList[index].time=taskList[index].time;
+    });
   }
 
   void showDialog() {
@@ -181,12 +262,15 @@ class MyAppState extends State<MyApp> {
               ),
               Container(
                 child: TextField(
+                  controller: titleController,
                   decoration: InputDecoration(hintText: 'Title'),
                 ),
                 margin: EdgeInsets.only(top: 20),
               ),
               Container(
                 child: TextField(
+                  controller: timeController,
+                  keyboardType: TextInputType.number,
                   decoration: InputDecoration(hintText: 'time'),
                 ),
                 margin: EdgeInsets.only(top: 40),
@@ -194,7 +278,12 @@ class MyAppState extends State<MyApp> {
               Container(
                 margin: EdgeInsets.only(top: 50),
                 child: MaterialButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    print(titleController.text);
+                    print(timeController.text);
+                    _insert(TaskModel(1, titleController.text,
+                        int.parse(timeController.text), 1));
+                  },
                   color: Colors.green,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(5.0)),
@@ -211,20 +300,74 @@ class MyAppState extends State<MyApp> {
     );
   }
 
-  void _query() async {
+  _query() async {
     final allRows = await dbHelper.queryAllRows();
 
-    allRows.forEach((row) => print(row));
+    List<TaskModel> taskList = <TaskModel>[];
+
+    allRows.forEach((row) => taskList
+        .add(TaskModel(row['_id'], row['title'], row['time'], row['status'])));
+
+    print(taskList[0].id);
+    this.taskList = taskList;
+    print('database');
+    setState(() {
+      this.taskList = taskList;
+    });
+    print(taskList);
   }
 
-  void _insert() async {
+  void _insert(TaskModel taskModel) async {
     // row to insert
     Map<String, dynamic> row = {
-      DatabaseHelper.columnTitle: 'Bob',
-      DatabaseHelper.columnTime: 23,
-      DatabaseHelper.columnStatus: 1
+      DatabaseHelper.columnTitle: taskModel.title,
+      DatabaseHelper.columnTime: taskModel.time,
+      DatabaseHelper.columnStatus: taskModel.status
     };
     final id = await dbHelper.insert(row);
+    setState(() {
+      taskList.clear();
+      _query();
+    });
     print('inserted row id: $id');
+  }
+
+  void _update(TaskModel taskModel) async {
+    // row to update
+    print(taskModel.id);
+    print(taskModel.title);
+    print(taskModel.time);
+    print(taskModel.status);
+    Map<String, dynamic> row = {
+      DatabaseHelper.columnId: taskModel.id,
+      DatabaseHelper.columnTitle: taskModel.title,
+      DatabaseHelper.columnTime: taskModel.time,
+      DatabaseHelper.columnStatus: taskModel.status
+    };
+    final rowsAffected = await dbHelper.update(row);
+    print('updated $rowsAffected row(s)');
+  }
+
+  void _updateByTime(TaskModel taskModel) async {
+    // row to update
+    print(taskModel.id);
+    print(taskModel.title);
+    print(taskModel.time);
+    print(taskModel.status);
+    Map<String, dynamic> row = {
+      DatabaseHelper.columnId: taskModel.id,
+      DatabaseHelper.columnTitle: taskModel.title,
+      DatabaseHelper.columnTime: taskModel.time,
+      DatabaseHelper.columnStatus: 1
+    };
+    final rowsAffected = await dbHelper.update(row);
+    print('updated $rowsAffected row(s)');
+  }
+
+  void _delete(int id) async {
+    // Assuming that the number of rows is the id for the last row.
+    // final id = await dbHelper.queryRowCount();
+    final rowsDeleted = await dbHelper.delete(id);
+    print('deleted $rowsDeleted row(s): row $id');
   }
 }

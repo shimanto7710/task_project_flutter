@@ -1,8 +1,8 @@
 class TaskModel {
-  final int id;
-  final String title;
-  final int time;
-  final int status;
+   int id;
+   String title;
+   int time;
+   int status;
 
 
 
